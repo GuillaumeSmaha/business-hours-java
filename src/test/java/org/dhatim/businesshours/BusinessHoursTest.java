@@ -68,6 +68,12 @@ public class BusinessHoursTest {
 
     @Test
     public void numericWeekDay() {
+        new BusinessHours(" hr {9-11}");
+        new BusinessHours("mday {29} hr {9}");
+        new BusinessHours("wday {sa-mo} min {50-10}");
+        new BusinessHours("hr {9} min {50-10}");
+        new BusinessHours("hr {9}, hr {17}");
+        new BusinessHours("hr {9-11}, hr {10-15}");
         assertEquals(new BusinessHours("wday {mo-we}"), new BusinessHours("wday {1-3}"));
         assertEquals(new BusinessHours("wday {mo-we}").hashCode(), new BusinessHours("wday {1-3}").hashCode());
     }
@@ -130,34 +136,63 @@ public class BusinessHoursTest {
                 });
     }
 
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidMonth() throws ParseException {
+        BusinessHoursParser.parse("month {ja-dec}");
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void invalidWeekDay() throws ParseException {
         BusinessHoursParser.parse("wday {su-wtf}");
+        // new BusinessHours("wday{Sa} hr{12-23}");
+        new BusinessHours("wday{Sa}, wday{Su}");
+        // assertEquals(new BusinessHours("wday{Mon-Fri} hr{9-18}").getOpeningCrons(), Collections.singleton("0 9 * * 1-5"));
+        // assertEquals(new BusinessHours("wday{Sa} hr{12-23}, wday{Su}").getOpeningCrons(), Collections.singleton("0 12 * * 6"));
+        // //every Wednesday and Thursday, from 20h30 to 3am
+        // //It opens on Wednesday at midnight, and on Wednesdays and Thursday at 20h30
+        // assertEquals(
+        //         new BusinessHours("wday{We-Th} hr{21-3}, wday{We-Th} hr{20} min{30-59}").getOpeningCrons(),
+        //         new HashSet<String>() {
+        //             {
+        //                 add("0 0 * * 3");
+        //                 add("30 20 * * 3-4");
+        //             }
+        //         });
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void invalidHourRange() throws ParseException {
-        BusinessHoursParser.parse("hr {10pm-8am-12}");
-    }
+    // @Test(expected = IllegalArgumentException.class)
+    // public void invalidMonth() throws ParseException {
+    //     BusinessHoursParser.parse("month {ja-dec}");
+    // }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void invalidHourFormat() throws ParseException {
-        BusinessHoursParser.parse("hr {9am-8wtf}");
-    }
+    // @Test(expected = IllegalArgumentException.class)
+    // public void invalidWeekDay() throws ParseException {
+    //     BusinessHoursParser.parse("wday {su-wtf}");
+    // }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void invalidMinuteRange() throws ParseException {
-        BusinessHoursParser.parse("min {10-11-12}");
-    }
+    // @Test(expected = IllegalArgumentException.class)
+    // public void invalidHourRange() throws ParseException {
+    //     BusinessHoursParser.parse("hr {10pm-8am-12}");
+    // }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void invalidMinuteFormat() throws ParseException {
-        BusinessHoursParser.parse("minute {5-10.1}");
-    }
+    // @Test(expected = IllegalArgumentException.class)
+    // public void invalidHourFormat() throws ParseException {
+    //     BusinessHoursParser.parse("hr {9am-8wtf}");
+    // }
 
-    @Test(expected = NullPointerException.class)
-    public void parseErrorWhenNullPeriod() throws ParseException {
-        BusinessHoursParser.parse(null);
-    }
+    // @Test(expected = IllegalArgumentException.class)
+    // public void invalidMinuteRange() throws ParseException {
+    //     BusinessHoursParser.parse("min {10-11-12}");
+    // }
 
+    // @Test(expected = IllegalArgumentException.class)
+    // public void invalidMinuteFormat() throws ParseException {
+    //     BusinessHoursParser.parse("minute {5-10.1}");
+    // }
+
+    // @Test(expected = NullPointerException.class)
+    // public void parseErrorWhenNullPeriod() throws ParseException {
+    //     BusinessHoursParser.parse(null);
+    // }
 }

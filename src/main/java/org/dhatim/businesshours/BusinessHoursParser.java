@@ -16,6 +16,7 @@
 package org.dhatim.businesshours;
 
 import java.time.DayOfWeek;
+import java.time.Month;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ValueRange;
 import java.util.ArrayList;
@@ -53,9 +54,15 @@ class BusinessHoursParser {
     private static final Map<ChronoField, Entry<Pattern, ToIntFunction<String>>> SUPPORTED_FIELDS
             = Collections.unmodifiableMap(new HashMap<ChronoField, Entry<Pattern, ToIntFunction<String>>>() {
                 {
+                    // put(ChronoField.SECOND_OF_MINUTE, new SimpleImmutableEntry<>(Pattern.compile("(?:sec|second) *\\{(.*?)\\}"), Integer::parseInt));
                     put(ChronoField.MINUTE_OF_HOUR, new SimpleImmutableEntry<>(Pattern.compile("(?:min|minute) *\\{(.*?)\\}"), Integer::parseInt));
                     put(ChronoField.HOUR_OF_DAY, new SimpleImmutableEntry<>(Pattern.compile("(?:hr|hour) *\\{(.*?)\\}"), BusinessHoursParser::hourStringToInt));
-                    put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?:wday|wd) *\\{(.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
+                    put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?:wd|wday) *\\{(.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
+                    // put(ChronoField.DAY_OF_MONTH, new SimpleImmutableEntry<>(Pattern.compile("(?:md|mday) *\\{(.*?)\\}"), Integer::parseInt));
+                    // put(ChronoField.DAY_OF_YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:yd|yday) *\\{(.*?)\\}"), Integer::parseInt));
+                    // put(ChronoField.ALIGNED_WEEK_OF_MONTH, new SimpleImmutableEntry<>(Pattern.compile("(?:wk|week) *\\{(.*?)\\}"), Integer::parseInt));
+                    // put(ChronoField.MONTH_OF_YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:mo|month) *\\{(.*?)\\}"), BusinessHoursParser::monthStringToInt));
+                    // put(ChronoField.YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:yr|year) *\\{(.*?)\\}"), Integer::parseInt));
                 }
             });
 
@@ -71,6 +78,24 @@ class BusinessHoursParser {
                     put("fr", DayOfWeek.FRIDAY.getValue());
                     put("sa", DayOfWeek.SATURDAY.getValue());
                     put("su", DayOfWeek.SUNDAY.getValue());
+                }
+            });
+
+    private static final Map<String, Integer> MONTHS_MAPPING
+            = Collections.unmodifiableMap(new HashMap<String, Integer>() {
+                {
+                    put("jan", Month.JANUARY.getValue());
+                    put("feb", Month.FEBRUARY.getValue());
+                    put("mar", Month.MARCH.getValue());
+                    put("apr", Month.APRIL.getValue());
+                    put("may", Month.MAY.getValue());
+                    put("jun", Month.JUNE.getValue());
+                    put("jul", Month.JULY.getValue());
+                    put("aug", Month.AUGUST.getValue());
+                    put("sep", Month.SEPTEMBER.getValue());
+                    put("oct", Month.OCTOBER.getValue());
+                    put("nov", Month.NOVEMBER.getValue());
+                    put("dec", Month.DECEMBER.getValue());
                 }
             });
 
@@ -111,6 +136,22 @@ class BusinessHoursParser {
                     .map(wd -> wd.toLowerCase(Locale.ENGLISH).substring(0, 2))
                     .map(WEEKDAYS_MAPPING::get)
                     .orElseThrow(() -> new IllegalArgumentException("Invalid weekday value: " + weekDay));
+        }
+        return result;
+    }
+
+    private static int monthStringToInt(String month) {
+        int result;
+        try {
+            // if the weekday is numeral
+            result = Integer.parseInt(month);
+        } catch (NumberFormatException e) {
+            // if the month is in letters, only the first three letters are significant
+            result = Optional.of(month)
+                    .filter(wd -> wd.length() >= 3)
+                    .map(wd -> wd.toLowerCase(Locale.ENGLISH).substring(0, 3))
+                    .map(MONTHS_MAPPING::get)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid month value: " + month));
         }
         return result;
     }
@@ -190,6 +231,8 @@ class BusinessHoursParser {
      * @return a stream of {@link BusinessPeriod}
      */
     private static Stream<BusinessPeriod> toBusinessPeriods(NavigableMap<ChronoField, ValueRange> ranges) {
+        List<BusinessPeriod> periods = new ArrayList<>();
+
         //no need to break the least significant range since it already is continuous
         ChronoField firstField = ranges.firstKey();
         ValueRange firstRange = ranges.get(firstField);
@@ -201,8 +244,15 @@ class BusinessHoursParser {
                 .stream()
                 .mapToInt(BusinessHoursParser::getRangeLength)
                 .reduce(1, (a, b) -> a * b);
-        List<BusinessPeriod> periods = new ArrayList<>();
 
+        System.out.println("*******");
+        System.out.println("Call toBusinessPeriods");
+        for (Map.Entry<ChronoField, ValueRange> entry : ranges.entrySet()) {
+            System.out.println(entry.getKey().toString() + " - " + entry.getValue().toString());
+        }
+        System.out.println("*******");
+
+        System.out.println("Count perdiods = " + String.valueOf(periodNb));
         //compute all the periods
         for (int i = 0; i < periodNb; i++) {
             int divisor = 1;
@@ -221,6 +271,8 @@ class BusinessHoursParser {
             }
             periods.add(new BusinessPeriod(BusinessTemporal.of(startFields), BusinessTemporal.of(endFields)));
         }
+        System.out.println("Count perdiods calculated = " + String.valueOf(periods.size()));
+        System.out.println("*******");
 
         return periods.stream();
     }
@@ -239,14 +291,37 @@ class BusinessHoursParser {
         //compute the list of acceptable ranges for each field
         SortedMap<ChronoField, List<ValueRange>> acceptedRanges = new TreeMap<ChronoField, List<ValueRange>>();
         SUPPORTED_FIELDS.forEach(
-                (field, parsingElts) -> acceptedRanges.put(
-                        field,
-                        defaultRange(
-                                getStringRanges(subPeriod, parsingElts.getKey())
-                                .stream()
-                                .flatMap(stringRange -> getRange(stringRange, field.range(), parsingElts.getValue()))
-                                .collect(Collectors.toList()),
-                                field.range())));
+            (field, parsingElts) -> acceptedRanges.put(
+                    field,
+                    defaultRange(
+                            getStringRanges(subPeriod, parsingElts.getKey())
+                            .stream()
+                            .flatMap(stringRange -> getRange(stringRange, field.range(), parsingElts.getValue()))
+                            .collect(Collectors.toList()),
+                            field.range())));
+
+        System.out.println("*******");
+        System.out.println("acceptedRanges:");
+        for (Map.Entry<ChronoField, List<ValueRange>> entry : acceptedRanges.entrySet()) {
+            List<ValueRange> ranges = entry.getValue();
+            System.out.println(entry.getKey().toString());
+            for (ValueRange r: ranges) {
+                System.out.println("    " + r.toString());
+            }
+        }
+
+        System.out.println("*******");
+        System.out.println("getRangeCombinations(acceptedRanges):");
+        Integer i = 0;
+        for (NavigableMap<ChronoField, ValueRange> map :getRangeCombinations(acceptedRanges)) {
+            System.out.println("getRangeCombinations(acceptedRanges)(" + i + "):");
+            for (Map.Entry<ChronoField, ValueRange> entry : map.entrySet()) {
+                ValueRange range = entry.getValue();
+                System.out.println(entry.getKey().toString() + " => " + range.toString());
+            }
+            i = i + 1;
+        }
+        System.out.println("*******");
 
         //get all range combination and convert them to business periods
         return getRangeCombinations(acceptedRanges)
