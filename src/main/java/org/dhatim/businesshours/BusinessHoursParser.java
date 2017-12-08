@@ -16,13 +16,16 @@
 package org.dhatim.businesshours;
 
 import java.time.DayOfWeek;
+import java.time.Month;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ValueRange;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,7 +39,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.IntStream;
 import java.util.Map.Entry;
+import java.util.function.BinaryOperator;
+
 import java.util.AbstractMap.SimpleImmutableEntry;
 
 class BusinessHoursParser {
@@ -51,11 +57,17 @@ class BusinessHoursParser {
      * </ul>
      */
     private static final Map<ChronoField, Entry<Pattern, ToIntFunction<String>>> SUPPORTED_FIELDS
-            = Collections.unmodifiableMap(new HashMap<ChronoField, Entry<Pattern, ToIntFunction<String>>>() {
+            = Collections.unmodifiableMap(new LinkedHashMap<ChronoField, Entry<Pattern, ToIntFunction<String>>>() {
                 {
+                    put(ChronoField.SECOND_OF_MINUTE, new SimpleImmutableEntry<>(Pattern.compile("(?:sec|second) *\\{(.*?)\\}"), Integer::parseInt));
                     put(ChronoField.MINUTE_OF_HOUR, new SimpleImmutableEntry<>(Pattern.compile("(?:min|minute) *\\{(.*?)\\}"), Integer::parseInt));
                     put(ChronoField.HOUR_OF_DAY, new SimpleImmutableEntry<>(Pattern.compile("(?:hr|hour) *\\{(.*?)\\}"), BusinessHoursParser::hourStringToInt));
-                    put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?:wday|wd) *\\{(.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
+                    put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?:wd|wday) *\\{(.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
+                    put(ChronoField.DAY_OF_MONTH, new SimpleImmutableEntry<>(Pattern.compile("(?:md|mday) *\\{(.*?)\\}"), Integer::parseInt));
+                    put(ChronoField.DAY_OF_YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:yd|yday) *\\{(.*?)\\}"), Integer::parseInt));
+                    // put(ChronoField.ALIGNED_WEEK_OF_MONTH, new SimpleImmutableEntry<>(Pattern.compile("(?:wk|week) *\\{(.*?)\\}"), Integer::parseInt));
+                    // put(ChronoField.MONTH_OF_YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:mo|month) *\\{(.*?)\\}"), BusinessHoursParser::monthStringToInt));
+                    // put(ChronoField.YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:yr|year) *\\{(.*?)\\}"), Integer::parseInt));
                 }
             });
 
@@ -71,6 +83,24 @@ class BusinessHoursParser {
                     put("fr", DayOfWeek.FRIDAY.getValue());
                     put("sa", DayOfWeek.SATURDAY.getValue());
                     put("su", DayOfWeek.SUNDAY.getValue());
+                }
+            });
+
+    private static final Map<String, Integer> MONTHS_MAPPING
+            = Collections.unmodifiableMap(new HashMap<String, Integer>() {
+                {
+                    put("jan", Month.JANUARY.getValue());
+                    put("feb", Month.FEBRUARY.getValue());
+                    put("mar", Month.MARCH.getValue());
+                    put("apr", Month.APRIL.getValue());
+                    put("may", Month.MAY.getValue());
+                    put("jun", Month.JUNE.getValue());
+                    put("jul", Month.JULY.getValue());
+                    put("aug", Month.AUGUST.getValue());
+                    put("sep", Month.SEPTEMBER.getValue());
+                    put("oct", Month.OCTOBER.getValue());
+                    put("nov", Month.NOVEMBER.getValue());
+                    put("dec", Month.DECEMBER.getValue());
                 }
             });
 
@@ -111,6 +141,22 @@ class BusinessHoursParser {
                     .map(wd -> wd.toLowerCase(Locale.ENGLISH).substring(0, 2))
                     .map(WEEKDAYS_MAPPING::get)
                     .orElseThrow(() -> new IllegalArgumentException("Invalid weekday value: " + weekDay));
+        }
+        return result;
+    }
+
+    private static int monthStringToInt(String month) {
+        int result;
+        try {
+            // if the weekday is numeral
+            result = Integer.parseInt(month);
+        } catch (NumberFormatException e) {
+            // if the month is in letters, only the first three letters are significant
+            result = Optional.of(month)
+                    .filter(wd -> wd.length() >= 3)
+                    .map(wd -> wd.toLowerCase(Locale.ENGLISH).substring(0, 3))
+                    .map(MONTHS_MAPPING::get)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid month value: " + month));
         }
         return result;
     }
@@ -190,37 +236,105 @@ class BusinessHoursParser {
      * @return a stream of {@link BusinessPeriod}
      */
     private static Stream<BusinessPeriod> toBusinessPeriods(NavigableMap<ChronoField, ValueRange> ranges) {
-        //no need to break the least significant range since it already is continuous
-        ChronoField firstField = ranges.firstKey();
-        ValueRange firstRange = ranges.get(firstField);
-        NavigableMap<ChronoField, ValueRange> remainingRanges = ranges.tailMap(firstField, false);
-
-        //compute the total number of periods
-        int periodNb = remainingRanges
-                .values()
-                .stream()
-                .mapToInt(BusinessHoursParser::getRangeLength)
-                .reduce(1, (a, b) -> a * b);
         List<BusinessPeriod> periods = new ArrayList<>();
 
-        //compute all the periods
-        for (int i = 0; i < periodNb; i++) {
-            int divisor = 1;
-            Map<ChronoField, Integer> startFields = new HashMap<>();
-            Map<ChronoField, Integer> endFields = new HashMap<>();
-            startFields.put(firstField, firstRange.checkValidIntValue(firstRange.getMinimum(), firstField));
-            endFields.put(firstField, firstRange.checkValidIntValue(firstRange.getMaximum(), firstField));
-            for (Map.Entry<ChronoField, ValueRange> entry : remainingRanges.entrySet()) {
-                ChronoField field = entry.getKey();
-                ValueRange range = entry.getValue();
-                int rangeLength = getRangeLength(range);
-                int value = range.checkValidIntValue(range.getMinimum(), field) + (i / divisor) % rangeLength;
-                startFields.put(field, value);
-                endFields.put(field, value);
-                divisor *= rangeLength;
+        // if (ranges.size() > 0) {
+            //no need to break the least significant range since it already is continuous
+            ChronoField firstField = ranges.firstKey();
+            ValueRange firstRange = ranges.get(firstField);
+            NavigableMap<ChronoField, ValueRange> remainingRanges = ranges.tailMap(firstField, false);
+
+            //compute the total number of periods
+            int periodNb = remainingRanges
+                    .values()
+                    .stream()
+                    .mapToInt(BusinessHoursParser::getRangeLength)
+                    .reduce(1, (a, b) -> a * b);
+
+            System.out.println("*******");
+            System.out.println("Call toBusinessPeriods");
+            for (Map.Entry<ChronoField, ValueRange> entry : ranges.entrySet()) {
+                System.out.println(entry.getKey().toString() + " - " + entry.getValue().toString());
             }
-            periods.add(new BusinessPeriod(BusinessTemporal.of(startFields), BusinessTemporal.of(endFields)));
-        }
+            System.out.println("*******");
+
+            System.out.println("Count periods = " + String.valueOf(periodNb));
+
+            System.out.println("Count periods = " + String.valueOf(periodNb));
+            //compute all the periods
+            for (int i = 0; i < periodNb; i++) {
+                int divisor = 1;
+                Map<ChronoField, Integer> startFields = new HashMap<>();
+                Map<ChronoField, Integer> endFields = new HashMap<>();
+                startFields.put(firstField, firstRange.checkValidIntValue(firstRange.getMinimum(), firstField));
+                endFields.put(firstField, firstRange.checkValidIntValue(firstRange.getMaximum(), firstField));
+
+
+                long maxSupportedUnitDuration = firstField.getBaseUnit().getDuration().getSeconds();
+                for (Map.Entry<ChronoField, ValueRange> entry : remainingRanges.entrySet()) {
+                    ChronoField field = entry.getKey();
+                    ValueRange range = entry.getValue();
+                    int rangeLength = getRangeLength(range);
+                    int value = range.checkValidIntValue(range.getMinimum(), field) + (i / divisor) % rangeLength;
+                    startFields.put(field, value);
+                    endFields.put(field, value);
+                    divisor *= rangeLength;
+
+                    maxSupportedUnitDuration = BinaryOperator.<Long>maxBy(Comparator.naturalOrder())
+                    .apply(maxSupportedUnitDuration, field.getBaseUnit().getDuration().getSeconds());
+                }
+
+                System.out.println("Period " + String.valueOf(i) + ": maxSupportedUnitDuration = " + String.valueOf(maxSupportedUnitDuration));
+
+                System.out.println("Period " + String.valueOf(i) + ": Add missing field");
+                for (Map.Entry<ChronoField, Entry<Pattern, ToIntFunction<String>>> entry : SUPPORTED_FIELDS.entrySet()) {
+                    ChronoField field = entry.getKey();
+                    if (!startFields.containsKey(field) && field.getBaseUnit().getDuration().getSeconds() < maxSupportedUnitDuration) {
+                        System.out.println("       - Add " + field.toString());
+                        ValueRange fieldRange = field.range();
+                        startFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMinimum(), field));
+                        // endFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMinimum(), field));
+                        endFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMaximum(), field));
+                    }
+                }
+
+                // SUPPORTED_FIELDS.forEach(
+                //     (field, parsingElts) -> {
+                //         if (!startFields.containsKey(field)) {
+                //             ValueRange fieldRange = field.range();
+                //             startFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMinimum(), field));
+                //             endFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMaximum(), field));
+                //         }
+                //     });
+
+                System.out.println("Period " + String.valueOf(i) + ":");
+                for (Map.Entry<ChronoField, Integer> entry : startFields.entrySet()) {
+                    System.out.print("  " + entry.getKey().toString() + "=" + entry.getValue().toString());
+                }
+                System.out.println();
+                for (Map.Entry<ChronoField, Integer> entry : endFields.entrySet()) {
+                    System.out.print("  " + entry.getKey().toString() + "=" + entry.getValue().toString());
+                }
+                System.out.println();
+
+
+                periods.add(new BusinessPeriod(BusinessTemporal.of(startFields), BusinessTemporal.of(endFields)));
+            }
+            System.out.println("Count perdiods calculated = " + String.valueOf(periods.size()));
+
+
+
+            System.out.println("*******");
+        // }
+        // else {
+        //     // When there is no period, insert a default period from 0 to 60 seconds
+        //     Map<ChronoField, Integer> startFields = new HashMap<>();
+        //     startFields.put(ChronoField.SECOND_OF_MINUTE, ChronoField.SECOND_OF_MINUTE.range().checkValidIntValue(ChronoField.SECOND_OF_MINUTE.range().getMinimum(), ChronoField.SECOND_OF_MINUTE));
+        //     Map<ChronoField, Integer> endFields = new HashMap<>();
+        //     endFields.put(ChronoField.SECOND_OF_MINUTE, ChronoField.SECOND_OF_MINUTE.range().checkValidIntValue(ChronoField.SECOND_OF_MINUTE.range().getMaximum(), ChronoField.SECOND_OF_MINUTE));
+
+        //     periods.add(new BusinessPeriod(BusinessTemporal.of(startFields), BusinessTemporal.of(endFields)));
+        // }
 
         return periods.stream();
     }
@@ -238,15 +352,56 @@ class BusinessHoursParser {
     private static Stream<BusinessPeriod> parseSubBusinessHours(String subPeriod) {
         //compute the list of acceptable ranges for each field
         SortedMap<ChronoField, List<ValueRange>> acceptedRanges = new TreeMap<ChronoField, List<ValueRange>>();
+        // SUPPORTED_FIELDS.forEach(
+        //     (field, parsingElts) -> acceptedRanges.put(
+        //             field,
+        //             defaultRange(
+        //                     getStringRanges(subPeriod, parsingElts.getKey())
+        //                     .stream()
+        //                     .flatMap(stringRange -> getRange(stringRange, field.range(), parsingElts.getValue()))
+        //                     .collect(Collectors.toList()),
+        //                     field.range())));
         SUPPORTED_FIELDS.forEach(
-                (field, parsingElts) -> acceptedRanges.put(
-                        field,
-                        defaultRange(
-                                getStringRanges(subPeriod, parsingElts.getKey())
-                                .stream()
-                                .flatMap(stringRange -> getRange(stringRange, field.range(), parsingElts.getValue()))
-                                .collect(Collectors.toList()),
-                                field.range())));
+                (field, parsingElts) -> {
+                    List<ValueRange> ranges = getStringRanges(subPeriod, parsingElts.getKey())
+                        .stream()
+                        .flatMap(stringRange -> getRange(stringRange, field.range(), parsingElts.getValue()))
+                        .collect(Collectors.toList());
+                    if (ranges.size() > 0) {
+                        acceptedRanges.put(field, ranges);
+                    }
+                });
+
+
+
+        // When there is no field, insert a default field from 0 to 60 minutes
+        if (acceptedRanges.size() == 0) {
+            acceptedRanges.put(ChronoField.MINUTE_OF_HOUR, Collections.singletonList(ChronoField.SECOND_OF_MINUTE.range()));
+        }
+
+        System.out.println("*******");
+        System.out.println("acceptedRanges:");
+        for (Map.Entry<ChronoField, List<ValueRange>> entry : acceptedRanges.entrySet()) {
+            List<ValueRange> ranges = entry.getValue();
+            System.out.println(entry.getKey().toString());
+            for (ValueRange r: ranges) {
+                System.out.println("    " + r.toString());
+            }
+        }
+
+        System.out.println("*******");
+        System.out.println("getRangeCombinations(acceptedRanges):");
+        Integer i = 0;
+        for (NavigableMap<ChronoField, ValueRange> map :getRangeCombinations(acceptedRanges)) {
+            System.out.println("getRangeCombinations(acceptedRanges)(" + i + "):");
+            for (Map.Entry<ChronoField, ValueRange> entry : map.entrySet()) {
+                ValueRange range = entry.getValue();
+                System.out.println(entry.getKey().toString() + " => " + range.toString());
+            }
+            i = i + 1;
+        }
+        System.out.println("*******");
+
 
         //get all range combination and convert them to business periods
         return getRangeCombinations(acceptedRanges)

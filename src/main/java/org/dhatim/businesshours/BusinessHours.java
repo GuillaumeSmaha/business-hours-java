@@ -112,7 +112,33 @@ public class BusinessHours {
      */
     public BusinessHours(String stringValue) {
         this.stringValue = stringValue;
+        System.out.println("--------------------------------------");
+        System.out.println("--------------------------------------");
+        System.out.println("--------------------------------------");
+        System.out.println(stringValue);
+        System.out.println("--------------------------------------");
         this.periods = new HashSet<>(BusinessHoursParser.parse(stringValue));
+
+        System.out.println("Periods Cron(\""+toString()+"\"):");
+        for(BusinessPeriod period: periods) {
+            CronExpression cr = period.getStartCron();
+            CronExpression cr2 = period.getEndCron();
+            if (cr != null && cr2 != null) {
+                System.out.println("\t " + cr.toString() + " -> " + cr2.toString());
+            }
+            else if (cr != null) {
+                System.out.println("\t " + cr.toString() + " -> null");
+            }
+            else if (cr2 != null) {
+                System.out.println("\t " + "null -> " + cr2.toString());
+            }
+            else {
+                System.out.println("\t " + "NULL");
+            }
+        }
+
+        getOpeningCrons();
+        getClosingCrons();
     }
 
     /**
@@ -152,7 +178,7 @@ public class BusinessHours {
      */
     public Set<String> getOpeningCrons() {
         //get the start crons of all periods and merge them
-        return CronExpression
+        Set<String> aa = CronExpression
                 .merge(
                         periods
                         .stream()
@@ -162,6 +188,12 @@ public class BusinessHours {
                 .stream()
                 .map(CronExpression::toString)
                 .collect(Collectors.toSet());
+        System.out.println("getOpeningCrons(\""+toString()+"\"):");
+        for (String s: aa) {
+            System.out.println("\t " + s);
+        }
+
+        return aa;
     }
 
     /**
@@ -172,7 +204,7 @@ public class BusinessHours {
      */
     public Set<String> getClosingCrons() {
         //get the end crons of all periods and merge them
-        return CronExpression
+        Set<String> aa = CronExpression
                 .merge(
                         periods
                         .stream()
@@ -182,6 +214,12 @@ public class BusinessHours {
                 .stream()
                 .map(CronExpression::toString)
                 .collect(Collectors.toSet());
+        System.out.println("getClosingCrons(\""+toString()+"\"):");
+        for (String s: aa) {
+            System.out.println("\t " + s);
+        }
+
+        return aa;
     }
 
     /**

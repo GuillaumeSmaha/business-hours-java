@@ -94,6 +94,19 @@ public class CronExpression {
                     .mapToObj(Integer::valueOf)
                     .collect(Collectors.toSet())));
         }
+
+
+        System.out.println("CronExpression():minSupportedUnitDuration");
+        System.out.println("\t" + String.valueOf(minSupportedUnitDuration));
+        System.out.println("CronExpression():unsupportedFields");
+        for (TemporalField entry : unsupportedFields) {
+            System.out.println("\t" + entry.toString());
+        }
+
+        System.out.println("CronExpression():fieldValues");
+        for (Map.Entry<TemporalField, SortedSet<Integer>> entry : fieldValues.entrySet()) {
+            System.out.println("\t" + entry.getKey().toString() + " => " + entry.getValue().toString());
+        }
     }
 
     private CronExpression(Map<TemporalField, SortedSet<Integer>> fieldValues) {

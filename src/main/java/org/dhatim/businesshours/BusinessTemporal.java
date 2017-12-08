@@ -26,8 +26,10 @@ import java.time.temporal.TemporalQueries;
 import java.time.temporal.TemporalQuery;
 import java.time.temporal.TemporalUnit;
 import java.time.temporal.UnsupportedTemporalTypeException;
+import java.time.temporal.ValueRange;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
@@ -43,7 +45,7 @@ import java.util.TreeMap;
  */
 public class BusinessTemporal implements Temporal, Comparable<Temporal> {
 
-    private final NavigableMap<ChronoField, Integer> fieldValues;
+    public final NavigableMap<ChronoField, Integer> fieldValues;
 
     private BusinessTemporal(Map<ChronoField, Integer> fieldValues) {
         super();
@@ -65,6 +67,11 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
     private static BusinessTemporal from(TemporalAccessor temporal, Set<ChronoField> supportedFields) {
         Map<ChronoField, Integer> fieldValues = new HashMap<>();
         supportedFields.forEach(field -> fieldValues.put(field, temporal.get(field)));
+        // supportedFields.forEach(field -> {
+        //     if (temporal.isSupported(field)) {
+        //         fieldValues.put(field, temporal.get(field));
+        //     }
+        // });
         return new BusinessTemporal(fieldValues);
     }
 
@@ -77,10 +84,11 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
         TemporalUnit expectedBaseUnit = fields.first().getBaseUnit();
         for (ChronoField field : fields) {
             if (!field.getBaseUnit().equals(expectedBaseUnit)) {
-                throw new DateTimeException("the fields must be contiguous");
+                // throw new DateTimeException("the fields must be contiguous");
             }
             if (!field.range().isFixed()) {
-                throw new DateTimeException("the fields must have a fixed range");
+                // expectedBaseUnit = field.getRangeUnit();
+                // throw new DateTimeException("the fields must have a fixed range");
             }
             expectedBaseUnit = field.getRangeUnit();
         }
@@ -160,6 +168,18 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
      * {@inheritDoc}
      */
     @Override
+    public String toString() {
+        String str = "";
+        for (Map.Entry<ChronoField, Integer> entry : fieldValues.entrySet()) {
+            str += "    " + entry.getKey().toString() + "=" + entry.getValue().toString();
+        }
+        return str + "\n";
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public Temporal plus(long amountToAdd, TemporalUnit unit) {
         if (unit instanceof ChronoUnit) {
             Map<ChronoField, Integer> newFieldValues = new HashMap<>(fieldValues);
@@ -179,12 +199,54 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
 
     private Duration durationUntil(Temporal end) {
         TemporalUnit endPrecision = end.query(TemporalQueries.precision());
-        return fieldValues
+        TemporalUnit thisPrecision = this.query(TemporalQueries.precision());
+        System.out.println();
+        System.out.println("durationUntil:endPrecision:");
+        System.out.println("    " + endPrecision.toString());
+        System.out.println("    " + endPrecision.getDuration().toString());
+        System.out.println("    " + String.valueOf(endPrecision.getDuration().get(ChronoUnit.SECONDS)));
+        System.out.println("durationUntil:thisPrecision:");
+        System.out.println("    " + thisPrecision.toString());
+        System.out.println("    " + thisPrecision.getDuration().toString());
+        System.out.println("    " + String.valueOf(thisPrecision.getDuration().get(ChronoUnit.SECONDS)));
+
+
+        System.out.println("durationUntil: endPrecision >= thisPrecision:");
+        System.out.println("    " + (endPrecision.getDuration().get(ChronoUnit.SECONDS) >= thisPrecision.getDuration().get(ChronoUnit.SECONDS) ? "true" : false));
+
+
+        TemporalUnit smallPrecision = endPrecision;
+        if (endPrecision.getDuration().get(ChronoUnit.SECONDS) >= thisPrecision.getDuration().get(ChronoUnit.SECONDS)) {
+            smallPrecision = thisPrecision;
+        }
+
+        Duration value =  fieldValues
                 .entrySet()
                 .stream()
-                .map(entry -> Duration.of(end.get(entry.getKey()) - entry.getValue(), entry.getKey().getBaseUnit()))
-                .reduce(Duration.ZERO, Duration::plus)
-                .plus(getLong(end, endPrecision, fieldValues.firstKey().getBaseUnit()), endPrecision);
+                // .filter(entry -> end.isSupported(entry.getKey()))
+                .map(entry -> {
+                    boolean hasValue = false;
+                    Integer endValue;
+                    // endValue = end.get(entry.getKey());
+                    if (end.isSupported(entry.getKey())) {
+                        endValue = end.get(entry.getKey());
+                        hasValue = true;
+                    }
+                    else {
+                        ValueRange fieldRange = entry.getKey().range();
+                        endValue = fieldRange.checkValidIntValue(fieldRange.getMaximum(), entry.getKey());
+                    }
+
+                    System.out.println("durationUntil:map:"+entry.getKey()+"(unit:"+entry.getKey().getBaseUnit()+") = " + (hasValue ? "" : "(maxValue) ")  + String.valueOf(endValue) + " - " + String.valueOf(entry.getValue()) + " => ");
+                    System.out.println("    " + String.valueOf(Duration.of(endValue - entry.getValue(), entry.getKey().getBaseUnit())));
+                    return Duration.of(endValue - entry.getValue(), entry.getKey().getBaseUnit());
+                })
+                .reduce(Duration.ZERO, Duration::plus);
+        System.out.println("durationUntil:Value:" + value.toString());
+        long lvalue = getLong(end, smallPrecision, fieldValues.firstKey().getBaseUnit());
+        System.out.println("durationUntil:GetLong:" + String.valueOf(lvalue));
+
+        return value.plus(getLong(end, smallPrecision, fieldValues.firstKey().getBaseUnit()), smallPrecision);
     }
 
     /**
@@ -195,11 +257,32 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
         //the implementation requirements state that 'endExclusive' must first be converted into a BusinessTemporal
         //it means that some precision can be lost and the result can only be/precise up to the smallest supported
         //unit of this temporal
+        System.out.println("until:");
+        System.out.println("until:unit:");
+        System.out.println("    " + unit.toString());
+        System.out.println("until:this:");
+        System.out.println("    " + toString());
+        System.out.println("until:endExclusive:");
+        System.out.println("    " + endExclusive.toString());
+
+        // Set<ChronoField> remainingField = intersectFields(endExclusive);
         BusinessTemporal end = from(endExclusive, fieldValues.keySet());
+        System.out.println("until:end:");
+        System.out.println("    " + end.toString());
         if (unit instanceof ChronoUnit) {
             return durationInUnit(durationUntil(end), unit);
         }
         return unit.between(this, end);
+    }
+
+    public Set<ChronoField> intersectFields(Temporal temporal) {
+        Set<ChronoField> result = new HashSet<ChronoField>();
+        for(ChronoField field: fieldValues.keySet()) {
+            if (temporal.isSupported(field)) {
+                result.add(field);
+            }
+        }
+        return result;
     }
 
     /**
@@ -320,6 +403,8 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
                 currentUnit = (ChronoUnit) field.getRangeUnit();
             }
         }
+
+        System.out.println("getLong():rangeUnit.getDuration() = " + rangeUnit.getDuration());
         return result % durationInUnit(rangeUnit.getDuration(), baseUnit);
     }
 
