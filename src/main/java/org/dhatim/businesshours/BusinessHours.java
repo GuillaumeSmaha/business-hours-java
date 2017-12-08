@@ -112,7 +112,29 @@ public class BusinessHours {
      */
     public BusinessHours(String stringValue) {
         this.stringValue = stringValue;
+        System.out.println("--------------------------------------");
+        System.out.println("--------------------------------------");
+        System.out.println("--------------------------------------");
+        System.out.println(stringValue);
+        System.out.println("--------------------------------------");
         this.periods = new HashSet<>(BusinessHoursParser.parse(stringValue));
+
+        for(BusinessPeriod period: periods) {
+            CronExpression cr = period.getStartCron();
+            CronExpression cr2 = period.getEndCron();
+            if (cr != null && cr2 != null) {
+                System.out.println(cr.toString() + " -> " + cr2.toString());
+            }
+            else if (cr != null) {
+                System.out.println(cr.toString() + " -> null");
+            }
+            else if (cr2 != null) {
+                System.out.println("null -> " + cr2.toString());
+            }
+            else {
+                System.out.println("NULL");
+            }
+        }
     }
 
     /**

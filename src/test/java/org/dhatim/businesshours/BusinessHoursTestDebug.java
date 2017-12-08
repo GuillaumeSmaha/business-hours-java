@@ -24,7 +24,7 @@ import java.util.HashSet;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
-public class BusinessHoursTest {
+public class BusinessHoursTestDebug {
 
     // @Test
     // public void parseAnyPeriod() {
@@ -106,41 +106,11 @@ public class BusinessHoursTest {
 
     @Test
     public void openingCrons() {
-        assertEquals(new BusinessHours("wday{Mon-Fri} hr{9-18}").getOpeningCrons(), Collections.singleton("0 9 * * 1-5"));
-        assertEquals(new BusinessHours("wday{Sa} hr{12-23}, wday{Su}").getOpeningCrons(), Collections.singleton("0 12 * * 6"));
-        //every Wednesday and Thursday, from 20h30 to 3am
-        //It opens on Wednesday at midnight, and on Wednesdays and Thursday at 20h30
-        assertEquals(
-                new BusinessHours("wday{We-Th} hr{21-3}, wday{We-Th} hr{20} min{30-59}").getOpeningCrons(),
-                new HashSet<String>() {
-                    {
-                        add("0 0 * * 3");
-                        add("30 20 * * 3-4");
-                    }
-                });
-    }
-
-    @Test
-    public void closingCrons() {
-        assertEquals(new BusinessHours("wday{Mon-Fri} hr{9-18}").getClosingCrons(), Collections.singleton("0 19 * * 1-5"));
-        assertEquals(new BusinessHours("wday{Sa} hr{12-23}, wday{Su}").getClosingCrons(), Collections.singleton("0 0 * * 1"));
-        //every Wednesday and Thursday, from 20h30 to 3am
-        //It opens on Wednesday at midnight, and on Wednesdays and Thursday at 20h30
-        assertEquals(
-                new BusinessHours("wday{We-Th} hr{21-3}, wday{We-Th} hr{20} min{30-59}").getClosingCrons(),
-                new HashSet<String>() {
-                    {
-                        add("0 0 * * 5");
-                        add("0 4 * * 3-4");
-                    }
-                });
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void invalidWeekDay() throws ParseException {
-        BusinessHoursParser.parse("wday {su-wtf}");
+        new BusinessHours("wday{Sa}");
         // new BusinessHours("wday{Sa} hr{12-23}");
-        new BusinessHours("wday{Sa}, wday{Su}");
+        // BusinessHours aaaa = new BusinessHours("wday{Fri-Sa} hr{12-23} min{0-29}, wday{Su}");
+        // BusinessHours aaaa = new BusinessHours("wday{Fri-Sa} hr{12-23} min{0-29}, wday{Sun}");
+        // System.out.println(aaaa.getOpeningCrons().toString()
         // assertEquals(new BusinessHours("wday{Mon-Fri} hr{9-18}").getOpeningCrons(), Collections.singleton("0 9 * * 1-5"));
         // assertEquals(new BusinessHours("wday{Sa} hr{12-23}, wday{Su}").getOpeningCrons(), Collections.singleton("0 12 * * 6"));
     //     //every Wednesday and Thursday, from 20h30 to 3am

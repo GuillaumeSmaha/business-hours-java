@@ -85,11 +85,11 @@ public class BusinessPeriod {
 
     /**
      * Get a {@link CronExpression} that triggers at each period closing.
-     * e.g. if the period is 9am-18pm, the result will be <code>59 18 * * *</code>
+     * e.g. if the period is 9am-18pm, the result will be <code>0 9 * * *</code>
      * @return <code>null</code> if the period is always open, else the cron expression
      */
     public CronExpression getEndCron() {
-        return alwaysOpen() ? null : new CronExpression(end.increment());
+        return alwaysOpen() ? null : new CronExpression(end);
     }
 
     /**
@@ -144,7 +144,16 @@ public class BusinessPeriod {
         List<BusinessPeriod> sortedPeriods = new ArrayList<>(periods);
         Collections.sort(sortedPeriods, Comparator.comparing(BusinessPeriod::getStart));
 
+        System.out.println("Sorted periods:");
+        Integer i = 0;
+        for (BusinessPeriod p : sortedPeriods) {
+            System.out.println("  Period " + String.valueOf(i) + ":");
+            System.out.println(p.getStart().toString());
+            i = i + 1;
+        }
+
         Set<BusinessPeriod> mergedPeriods = new HashSet<>(periods.size());
+        // return mergedPeriods;
         BusinessPeriod currentPeriod = null;
         for (BusinessPeriod period : sortedPeriods) {
             if (currentPeriod == null) {
