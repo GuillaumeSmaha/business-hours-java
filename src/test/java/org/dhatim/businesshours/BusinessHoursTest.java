@@ -17,8 +17,10 @@ package org.dhatim.businesshours;
 
 import java.text.ParseException;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import static org.junit.Assert.assertEquals;
@@ -128,6 +130,32 @@ public class BusinessHoursTest {
                         add("0 4 * * 3-4");
                     }
                 });
+    }
+
+    @Test
+    public void holiday() {
+        HashSet<LocalDate> holidays = new HashSet<LocalDate>(Arrays.asList(
+            LocalDate.parse("2014-12-25"),
+            LocalDate.parse("2014-12-31"),
+            LocalDate.parse("2015-01-01")
+        ));
+
+        BusinessHours bh = new BusinessHours("hr {09-5pm}", holidays);
+        Temporal t;
+        t = LocalDateTime.parse("2014-12-24T15:00:00");
+        assertEquals(bh.isOpen(t), true);
+        t = LocalDateTime.parse("2014-12-25T15:00:00");
+        assertEquals(bh.isOpen(t), false);
+        t = LocalDateTime.parse("2014-12-26T15:00:00");
+        assertEquals(bh.isOpen(t), true);
+        t = LocalDateTime.parse("2014-12-30T15:00:00");
+        assertEquals(bh.isOpen(t), true);
+        t = LocalDateTime.parse("2014-12-31T15:00:00");
+        assertEquals(bh.isOpen(t), false);
+        t = LocalDateTime.parse("2015-01-01T15:00:00");
+        assertEquals(bh.isOpen(t), false);
+        t = LocalDateTime.parse("2015-01-02T15:00:00");
+        assertEquals(bh.isOpen(t), true);
     }
 
     @Test(expected = IllegalArgumentException.class)

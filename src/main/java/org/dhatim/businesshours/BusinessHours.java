@@ -15,6 +15,7 @@
  */
 package org.dhatim.businesshours;
 
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.util.HashSet;
@@ -103,6 +104,7 @@ public class BusinessHours {
 
     private final String stringValue;
     private final Set<BusinessPeriod> periods;
+    private final Set<LocalDate> holidays;
 
     /**
      * Build a new instance of BusinessHours from its string representation.
@@ -113,6 +115,20 @@ public class BusinessHours {
     public BusinessHours(String stringValue) {
         this.stringValue = stringValue;
         this.periods = new HashSet<>(BusinessHoursParser.parse(stringValue));
+        this.holidays = new HashSet<>();
+    }
+
+    /**
+     * Build a new instance of BusinessHours from its string representation.
+     *
+     * @param stringValue the string representation of the business hours. See
+     * the class level Javadoc for more info on valid formats.
+     * @param holidays List of holidays when bussines is closed
+     */
+    public BusinessHours(String stringValue, Set<LocalDate> holidays) {
+        this.stringValue = stringValue;
+        this.periods = new HashSet<>(BusinessHoursParser.parse(stringValue));
+        this.holidays = holidays;
     }
 
     /**
@@ -123,7 +139,7 @@ public class BusinessHours {
      * @return true if the business is open at the given time, false otherwise
      */
     public boolean isOpen(Temporal temporal) {
-        return periods
+        return !isHoliday(temporal) && periods
                 .stream()
                 .anyMatch(period -> period.isInPeriod(temporal));
     }
@@ -185,13 +201,27 @@ public class BusinessHours {
     }
 
     /**
+     * Tells if the business is a holiday at the given time.
+     *
+     * @param temporal the time when we want to know if the business is open or
+     * closed.
+     * @return true if the business is a holiday at the given time, false otherwise
+     */
+    public boolean isHoliday(Temporal temporal) {
+        LocalDate temporalDate = LocalDate.from(temporal);
+        return holidays
+            .stream()
+            .anyMatch(holiday -> holiday.compareTo(temporalDate) == 0);
+    }
+
+    /**
      * Returns a hash code for this BusinessHours.
      *
      * @return a suitable hash code
      */
     @Override
     public int hashCode() {
-        return periods.hashCode();
+        return periods.hashCode() + holidays.hashCode();
     }
 
     /**
@@ -224,5 +254,4 @@ public class BusinessHours {
     public String toString() {
         return stringValue;
     }
-
 }
