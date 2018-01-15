@@ -54,9 +54,9 @@ class BusinessHoursParser {
     private static final Map<ChronoField, Entry<Pattern, ToIntFunction<String>>> SUPPORTED_FIELDS
             = Collections.unmodifiableMap(new LinkedHashMap<ChronoField, Entry<Pattern, ToIntFunction<String>>>() {
                 {
-                    put(ChronoField.MINUTE_OF_HOUR, new SimpleImmutableEntry<>(Pattern.compile("(?:min|minute) *\\{(.*?)\\}"), Integer::parseInt));
-                    put(ChronoField.HOUR_OF_DAY, new SimpleImmutableEntry<>(Pattern.compile("(?:hr|hour) *\\{(.*?)\\}"), BusinessHoursParser::hourStringToInt));
-                    put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?:wday|wd) *\\{(.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
+                    put(ChronoField.MINUTE_OF_HOUR, new SimpleImmutableEntry<>(Pattern.compile("(?<negative>!?) *(?:min|minute) *\\{(?<range>.*?)\\}"), Integer::parseInt));
+                    put(ChronoField.HOUR_OF_DAY, new SimpleImmutableEntry<>(Pattern.compile("(?<negative>!?) *(?:hr|hour) *\\{(?<range>.*?)\\}"), BusinessHoursParser::hourStringToInt));
+                    put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?<negative>!?) *(?:wday|wd) *\\{(?<range>.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
                 }
             });
 
@@ -119,8 +119,14 @@ class BusinessHoursParser {
     private static Set<String> getStringRanges(String subPeriod, Pattern pattern) {
         Set<String> ranges = new HashSet<>();
         Matcher matcher = pattern.matcher(subPeriod);
+        System.out.println("subPeriod: " + subPeriod + " & pattern: " + pattern.pattern());
         while (matcher.find()) {
-            String match = matcher.group(1).trim();
+            System.out.println(matcher.group());
+            if (!matcher.group("negative").isEmpty()) {
+                System.out.println(" - " + matcher.group("negative"));
+            }
+            System.out.println(" - " + matcher.group("range"));
+            String match = matcher.group("range").trim();
             Arrays.stream(match.split(" ")).forEach(ranges::add);
         }
         return ranges;
@@ -271,5 +277,37 @@ class BusinessHoursParser {
                 .stream()
                 .flatMap(BusinessHoursParser::toBusinessPeriods);
     }
+
+    @Test
+    public void negativePeriod() {
+        // BusinessHours bh = new BusinessHours("wday {mon-Fri} hr {9-18} ! hr {12-13}");
+        BusinessHours bh = new BusinessHours("wday {mon-Fri} hr {9-11 14-18}}");
+        System.out.println(bh.getOpeningCrons());
+        System.out.println(bh.getClosingCrons());
+        assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T01:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T09:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T11:59:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T12:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T13:59:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T14:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T18:59:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T19:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-14T23:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T01:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T09:00:00")), true);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T11:59:00")), true);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T12:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T13:59:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T14:00:00")), true);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T18:59:00")), true);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T19:00:00")), false);
+        // assertEquals(bh.isOpen(LocalDateTime.parse("2018-01-15T23:00:00")), false);
+    }
+
+    // @Test
+    // public void negativePeriodComparison() {
+    //     assertEquals(new BusinessHours("wday {mon-Fri} hr {9-18} ! hr {12-13}"), new BusinessHours("wday {mon-Fri} hr {9-11}, wday {mon-Fri} hr {14-18}"));
+    //     assertEquals(new BusinessHours("wday {mon-Fri} hr {9-18} ! hr {12-13}"), new BusinessHours("wday {mon-Fri} hr {9-11 14-18}"));
+    // }
 
 }
