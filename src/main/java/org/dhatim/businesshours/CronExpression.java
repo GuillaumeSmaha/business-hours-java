@@ -81,7 +81,7 @@ public class CronExpression {
             } else {
                 unsupportedFields.add(field);
             }
-        }
+        };
 
         //fields not supported by the temporal: either any value or only the minimum value is acceptable,
         //depending on which side of the supported fields it is
@@ -93,6 +93,19 @@ public class CronExpression {
                     .mapToInt(value -> field.range().checkValidIntValue(value, field))
                     .mapToObj(Integer::valueOf)
                     .collect(Collectors.toSet())));
+        }
+
+
+        System.out.println("CronExpression():minSupportedUnitDuration");
+        System.out.println("\t" + String.valueOf(minSupportedUnitDuration));
+        System.out.println("CronExpression():unsupportedFields");
+        for (TemporalField entry : unsupportedFields) {
+            System.out.println("\t" + entry.toString());
+        }
+
+        System.out.println("CronExpression():fieldValues");
+        for (Map.Entry<TemporalField, SortedSet<Integer>> entry : fieldValues.entrySet()) {
+            System.out.println("\t" + entry.getKey().toString() + " => " + entry.getValue().toString());
         }
     }
 

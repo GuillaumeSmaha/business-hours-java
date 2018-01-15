@@ -16,6 +16,7 @@
 package org.dhatim.businesshours;
 
 import java.time.DayOfWeek;
+import java.time.Month;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ValueRange;
 import java.util.ArrayList;
@@ -54,9 +55,14 @@ class BusinessHoursParser {
     private static final Map<ChronoField, Entry<Pattern, ToIntFunction<String>>> SUPPORTED_FIELDS
             = Collections.unmodifiableMap(new LinkedHashMap<ChronoField, Entry<Pattern, ToIntFunction<String>>>() {
                 {
+                    put(ChronoField.SECOND_OF_MINUTE, new SimpleImmutableEntry<>(Pattern.compile("(?:sec|second) *\\{(.*?)\\}"), Integer::parseInt));
                     put(ChronoField.MINUTE_OF_HOUR, new SimpleImmutableEntry<>(Pattern.compile("(?:min|minute) *\\{(.*?)\\}"), Integer::parseInt));
                     put(ChronoField.HOUR_OF_DAY, new SimpleImmutableEntry<>(Pattern.compile("(?:hr|hour) *\\{(.*?)\\}"), BusinessHoursParser::hourStringToInt));
                     put(ChronoField.DAY_OF_WEEK, new SimpleImmutableEntry<>(Pattern.compile("(?:wday|wd) *\\{(.*?)\\}"), BusinessHoursParser::weekDayStringToInt));
+                    put(ChronoField.DAY_OF_MONTH, new SimpleImmutableEntry<>(Pattern.compile("(?:md|mday) *\\{(.*?)\\}"), Integer::parseInt));
+                    put(ChronoField.DAY_OF_YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:yd|yday) *\\{(.*?)\\}"), Integer::parseInt));
+                    put(ChronoField.MONTH_OF_YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:mo|month) *\\{(.*?)\\}"), BusinessHoursParser::monthStringToInt));
+                    put(ChronoField.YEAR, new SimpleImmutableEntry<>(Pattern.compile("(?:yr|year) *\\{(.*?)\\}"), Integer::parseInt));
                 }
             });
 
@@ -72,6 +78,24 @@ class BusinessHoursParser {
                     put("fr", DayOfWeek.FRIDAY.getValue());
                     put("sa", DayOfWeek.SATURDAY.getValue());
                     put("su", DayOfWeek.SUNDAY.getValue());
+                }
+            });
+
+    private static final Map<String, Integer> MONTHS_MAPPING
+            = Collections.unmodifiableMap(new HashMap<String, Integer>() {
+                {
+                    put("jan", Month.JANUARY.getValue());
+                    put("feb", Month.FEBRUARY.getValue());
+                    put("mar", Month.MARCH.getValue());
+                    put("apr", Month.APRIL.getValue());
+                    put("may", Month.MAY.getValue());
+                    put("jun", Month.JUNE.getValue());
+                    put("jul", Month.JULY.getValue());
+                    put("aug", Month.AUGUST.getValue());
+                    put("sep", Month.SEPTEMBER.getValue());
+                    put("oct", Month.OCTOBER.getValue());
+                    put("nov", Month.NOVEMBER.getValue());
+                    put("dec", Month.DECEMBER.getValue());
                 }
             });
 
@@ -112,6 +136,22 @@ class BusinessHoursParser {
                     .map(wd -> wd.toLowerCase(Locale.ENGLISH).substring(0, 2))
                     .map(WEEKDAYS_MAPPING::get)
                     .orElseThrow(() -> new IllegalArgumentException("Invalid weekday value: " + weekDay));
+        }
+        return result;
+    }
+
+    private static int monthStringToInt(String month) {
+        int result;
+        try {
+            // if the weekday is numeral
+            result = Integer.parseInt(month);
+        } catch (NumberFormatException e) {
+            // if the month is in letters, only the first three letters are significant
+            result = Optional.of(month)
+                    .filter(wd -> wd.length() >= 3)
+                    .map(wd -> wd.toLowerCase(Locale.ENGLISH).substring(0, 3))
+                    .map(MONTHS_MAPPING::get)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid month value: " + month));
         }
         return result;
     }
@@ -217,8 +257,7 @@ class BusinessHoursParser {
             }
 
             // Add missing first fields with max range
-            for (Map.Entry<ChronoField, Entry<Pattern, ToIntFunction<String>>> entry : SUPPORTED_FIELDS.entrySet()) {
-                ChronoField field = entry.getKey();
+            for (ChronoField field : Arrays.asList(ChronoField.SECOND_OF_MINUTE, ChronoField.MINUTE_OF_HOUR, ChronoField.HOUR_OF_DAY)) {
                 if (!startFields.containsKey(field)) {
                     ValueRange fieldRange = field.range();
                     startFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMinimum(), field));
@@ -228,6 +267,19 @@ class BusinessHoursParser {
                     break;
                 }
             }
+
+            // // Add missing first fields with max range
+            // for (Map.Entry<ChronoField, Entry<Pattern, ToIntFunction<String>>> entry : SUPPORTED_FIELDS.entrySet()) {
+            //     ChronoField field = entry.getKey();
+            //     if (!startFields.containsKey(field)) {
+            //         ValueRange fieldRange = field.range();
+            //         startFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMinimum(), field));
+            //         endFields.put(field, fieldRange.checkValidIntValue(fieldRange.getMaximum(), field));
+            //     }
+            //     else {
+            //         break;
+            //     }
+            // }
 
 
             periods.add(new BusinessPeriod(BusinessTemporal.of(startFields), BusinessTemporal.of(endFields)));

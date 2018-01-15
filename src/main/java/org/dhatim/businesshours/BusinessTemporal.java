@@ -64,7 +64,15 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
 
     private static BusinessTemporal from(TemporalAccessor temporal, Set<ChronoField> supportedFields) {
         Map<ChronoField, Integer> fieldValues = new HashMap<>();
-        supportedFields.forEach(field -> fieldValues.put(field, temporal.get(field)));
+        // supportedFields.forEach(field -> fieldValues.put(field, temporal.get(field)));
+        supportedFields.forEach(field -> {
+            if (temporal.isSupported(field)) {
+                fieldValues.put(field, temporal.get(field));
+            }
+            else {
+                fieldValues.put(field, field.checkValidIntValue(field.range().getMinimum()));
+            }
+        });
         return new BusinessTemporal(fieldValues);
     }
 
@@ -77,10 +85,10 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
         TemporalUnit expectedBaseUnit = fields.first().getBaseUnit();
         for (ChronoField field : fields) {
             if (!field.getBaseUnit().equals(expectedBaseUnit)) {
-                throw new DateTimeException("the fields must be contiguous");
+                // throw new DateTimeException("the fields must be contiguous");
             }
             if (!field.range().isFixed()) {
-                throw new DateTimeException("the fields must have a fixed range");
+                // throw new DateTimeException("the fields must have a fixed range");
             }
             expectedBaseUnit = field.getRangeUnit();
         }
@@ -182,6 +190,8 @@ public class BusinessTemporal implements Temporal, Comparable<Temporal> {
         return fieldValues
                 .entrySet()
                 .stream()
+                // .filter(entry -> end.isSupported(entry.getKey()))
+                // .filter(entry -> entry.getKey().range().isFixed())
                 .map(entry -> Duration.of(end.get(entry.getKey()) - entry.getValue(), entry.getKey().getBaseUnit()))
                 .reduce(Duration.ZERO, Duration::plus)
                 .plus(getLong(end, endPrecision, fieldValues.firstKey().getBaseUnit()), endPrecision);

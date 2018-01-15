@@ -94,6 +94,94 @@ public class BusinessHoursTest {
     }
 
     @Test
+    public void fieldSecond() {
+        BusinessHours bh = new BusinessHours("sec{0-29}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-25T00:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-26T00:00:29")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-26T00:00:30")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-26T00:00:59")), false);
+    }
+
+    @Test
+    public void fieldDayOfMonth() {
+        BusinessHours bh = new BusinessHours("mday{10}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-09T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-10T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-11T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-05-09T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-05-10T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-05-11T12:00:00")), false);
+    }
+
+    @Test
+    public void fieldDayOfYear() {
+        BusinessHours bh = new BusinessHours("yday{50}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-18T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-19T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-20T12:00:00")), false);
+    }
+
+    @Test
+    public void fieldMonth() {
+        BusinessHours bh = new BusinessHours("mo{mar}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-18T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-19T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-20T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-03-18T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-03-19T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-03-20T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-18T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-19T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-04-20T12:00:00")), false);
+    }
+
+    @Test
+    public void fieldYear() {
+        BusinessHours bh = new BusinessHours("yd{2015}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-02-20T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-03-18T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-02-20T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-03-18T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-22T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-02-20T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-03-18T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-22T12:00:00")), false);
+    }
+
+    @Test
+    public void fixedDate() {
+        BusinessHours bh = new BusinessHours("yd{2015} mo{dec} md{22}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-21T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-23T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-11-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-21T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-22T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-23T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-21T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-23T12:00:00")), false);
+    }
+
+    @Test
+    public void annualDate() {
+        BusinessHours bh = new BusinessHours("mo{dec} md{22}");
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-11-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-21T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-22T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2014-12-23T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-11-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-21T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-22T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2015-12-23T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-11-22T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-21T12:00:00")), false);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-22T12:00:00")), true);
+        assertEquals(bh.isOpen(LocalDateTime.parse("2016-12-23T12:00:00")), false);
+    }
+
+    @Test
     public void BusinessHourstoString() {
         assertEquals(new BusinessHours("wday {mon-Fri} hr {9-18}").toString(), "wday {mon-Fri} hr {9-18}");
     }
